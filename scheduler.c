@@ -1,39 +1,37 @@
 #include "headers.h"
 
+struct process {
+    int id;
+    int arrival; //IMPORTANT
+    int runtime;
+    int priority;
+};
 
 int main(int argc, char * argv[])
 {
-    //initClk();
-    if(argc != 2)
+    initClk();
+    if(argc != 3)
     {
         printf("sad ya5oya\n");
-        FILE *output_file = fopen("output.txt", "w");
-        if (output_file == NULL) {
-            perror("Error opening file");
-            return 1;
-        }
-
-        fprintf(output_file, "saaaaad\n");
-        exit(-1);
     }
-    int algorithm = atoi(argv[0]);
-    int quantum = atoi(argv[1]);
-    printf("ana aho w ma3aya\n");
-    printf("%d\n",algorithm);
-    printf("%d\n",quantum);
-
-    FILE *output_file = fopen("output.txt", "w");
-    if (output_file == NULL) {
-        perror("Error opening file");
-        return 1;
-    }
-
-    fprintf(output_file, "algorithm = %d\n", algorithm);
-    fprintf(output_file, "quantum = %d\n", quantum);
     
+    int algorithm = atoi(argv[1]);
+    int quantum = atoi(argv[2]);
+    printf("ana aho w ma3aya, ");
+    printf("algorithm: %d, ",algorithm);
+    printf("quantum: %d\n",quantum);
 
-    // close the file
-    fclose(output_file);
+    key_t key = ftok("key", 'p');
+    int msgqid = msgget(key, 0666 | IPC_CREAT);
+
+    while(1)
+    {
+        struct process temp;
+        msgrcv(msgqid, &temp, sizeof(struct process), 0, 0);
+        sleep(1);
+        printf("recieve process, id: %d, arrival: %d, runtime: %d, priority: %d\n",temp.id,temp.arrival,temp.runtime,temp.priority);
+    }
+
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
     
