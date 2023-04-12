@@ -75,7 +75,7 @@ void initiateChildren()
         sprintf(alg_str, "%d", algorithm);
         sprintf(qntm_str, "%d", quantum);
         printf("I will go to scheduler.out\n");
-        execl("scheduler.out", "scheduler.out", alg_str, qntm_str, NULL);
+        execl("scheduler.out", alg_str, qntm_str, NULL);
 
     }
     printf("I won't go to scheduler.out\n");

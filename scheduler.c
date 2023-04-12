@@ -4,7 +4,7 @@
 int main(int argc, char * argv[])
 {
     //initClk();
-    if(argc != 3)
+    if(argc != 2)
     {
         printf("sad ya5oya\n");
         FILE *output_file = fopen("output.txt", "w");
@@ -16,8 +16,8 @@ int main(int argc, char * argv[])
         fprintf(output_file, "saaaaad\n");
         exit(-1);
     }
-    int algorithm = atoi(argv[1]);
-    int quantum = atoi(argv[2]);
+    int algorithm = atoi(argv[0]);
+    int quantum = atoi(argv[1]);
     printf("ana aho w ma3aya\n");
     printf("%d\n",algorithm);
     printf("%d\n",quantum);
