@@ -3,10 +3,39 @@
 
 int main(int argc, char * argv[])
 {
-    initClk();
+    //initClk();
+    if(argc != 3)
+    {
+        printf("sad ya5oya\n");
+        FILE *output_file = fopen("output.txt", "w");
+        if (output_file == NULL) {
+            perror("Error opening file");
+            return 1;
+        }
+
+        fprintf(output_file, "saaaaad\n");
+        exit(-1);
+    }
+    int algorithm = atoi(argv[1]);
+    int quantum = atoi(argv[2]);
+    printf("ana aho w ma3aya\n");
+    printf("%d\n",algorithm);
+    printf("%d\n",quantum);
+
+    FILE *output_file = fopen("output.txt", "w");
+    if (output_file == NULL) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    fprintf(output_file, "algorithm = %d\n", algorithm);
+    fprintf(output_file, "quantum = %d\n", quantum);
     
+
+    // close the file
+    fclose(output_file);
     //TODO implement the scheduler :)
     //upon termination release the clock resources.
     
-    destroyClk(true);
+    //destroyClk(true);
 }

@@ -38,6 +38,7 @@ int getClk()
 void initClk()
 {
     int shmid = shmget(SHKEY, 4, 0444);
+    printf("clk shmid: %d\n",shmid);
     while ((int)shmid == -1)
     {
         //Make sure that the clock exists
