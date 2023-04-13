@@ -3,7 +3,8 @@
 
 int algorithm=-1,quantum = 0,processesNumber=0;
 pid_t pids[2];
-int msgqid;
+int msgqid,sigshmid;
+int * sigshmaddr;
 
 struct process {
     int id;
@@ -127,20 +128,31 @@ int main(int argc, char * argv[])
     initiateChildren();
     
     // 4. Use this function after creating the clock process to initialize clock
-    initClk();
+    
     // To get time use this
+    key_t sigkey = ftok("key", 'n');
+    sigshmid = shmget(sigkey, 4, 0666| IPC_CREAT);
+    sigshmaddr = (int *) shmat(sigshmid, (void *)0, 0);
+    printf("sig hehe: %d\n",sigshmid);
     key_t key = ftok("key", 'p');
     msgqid = msgget(key, 0666 | IPC_CREAT);
     int i = 0;
+    initClk();
     while (i<processesNumber)
     {
         int currentTime = getClk();
         if((processes+i)->arrival == currentTime)
         {
-            printf("send process to %d, id: %d, arrival: %d, runtime: %d, priority: %d\n",pids[1],(processes+i)->id,(processes+i)->arrival,(processes+i)->runtime,(processes+i)->priority);
-            msgsnd(msgqid, &processes[i], sizeof(struct process), 0);
+            int arrivedProcesses=0;
+            while((processes+i)->arrival == currentTime)
+            {
+                printf("send process to %d, id: %d, arrival: %d, runtime: %d, priority: %d\n",pids[1],(processes+i)->id,(processes+i)->arrival,(processes+i)->runtime,(processes+i)->priority);
+                msgsnd(msgqid, &processes[i], sizeof(struct process), 0);
+                i++;
+                arrivedProcesses++;
+            }
+            *sigshmaddr = arrivedProcesses;
             kill(pids[1],SIGUSR1);
-            i++;
         }
     }
     
@@ -160,7 +172,9 @@ int main(int argc, char * argv[])
 void clearResources(int signum)
 {
     //TODO Clears all resources in case of interruption
+    //free malloc
     msgctl(msgqid, IPC_RMID, NULL);
+    shmctl(sigshmid, IPC_RMID, 0);
     kill(pids[0],SIGKILL);
     kill(pids[1],SIGKILL);
     kill(getpid(),SIGKILL);
