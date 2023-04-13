@@ -1,6 +1,10 @@
 #include "headers.h"
 #include <string.h>
 
+int algorithm=-1,quantum = 0,processesNumber=0;
+pid_t pids[2];
+int msgqid;
+
 struct process {
     int id;
     int arrival; //IMPORTANT
@@ -9,9 +13,6 @@ struct process {
 };
 
 void clearResources(int);
-
-int algorithm=-1,quantum = 0,processesNumber=0;
-pid_t pids[2];
 
 void readFile(struct process ** processes_ptr)
 {
@@ -92,15 +93,18 @@ void initiateChildren()
         else if (pids[i] == 0)
         {
             if (i == 0)
+                execl("./clk.out", "clk.out", NULL);
+            else
             {
                 char alg_str[10];
                 char qntm_str[10];
+                char prnm_str[10];
                 sprintf(alg_str, "%d", algorithm);
                 sprintf(qntm_str, "%d", quantum);
-                execl("./scheduler.out","scheduler.out", alg_str, qntm_str, NULL);
+                sprintf(prnm_str, "%d", processesNumber);
+                execl("./scheduler.out","scheduler.out", alg_str, qntm_str,prnm_str, NULL);
             }
-            else
-                execl("./clk.out", "clk.out", NULL);
+                
 
         }
     }
@@ -108,7 +112,7 @@ void initiateChildren()
 
 int main(int argc, char * argv[])
 {
-    //signal(SIGINT, clearResources);
+    signal(SIGINT, clearResources);
     struct process * processes = NULL;
     // TODO Initialization
     // 1. Read the input files.
@@ -126,15 +130,16 @@ int main(int argc, char * argv[])
     initClk();
     // To get time use this
     key_t key = ftok("key", 'p');
-    int msgqid = msgget(key, 0666 | IPC_CREAT);
+    msgqid = msgget(key, 0666 | IPC_CREAT);
     int i = 0;
     while (i<processesNumber)
     {
         int currentTime = getClk();
         if((processes+i)->arrival == currentTime)
         {
-            printf("current process, id: %d, arrival: %d, runtime: %d, priority: %d\n",(processes+i)->id,(processes+i)->arrival,(processes+i)->runtime,(processes+i)->priority);
+            printf("send process to %d, id: %d, arrival: %d, runtime: %d, priority: %d\n",pids[1],(processes+i)->id,(processes+i)->arrival,(processes+i)->runtime,(processes+i)->priority);
             msgsnd(msgqid, &processes[i], sizeof(struct process), 0);
+            kill(pids[1],SIGUSR1);
             i++;
         }
     }
@@ -155,4 +160,8 @@ int main(int argc, char * argv[])
 void clearResources(int signum)
 {
     //TODO Clears all resources in case of interruption
+    msgctl(msgqid, IPC_RMID, NULL);
+    kill(pids[0],SIGKILL);
+    kill(pids[1],SIGKILL);
+    kill(getpid(),SIGKILL);
 }
