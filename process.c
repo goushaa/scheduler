@@ -1,7 +1,12 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
+struct message {
+    long mtype;
+    int status;
+};
 int remainingTime;
+
 
 int main(int agrc, char * argv[])
 {
@@ -15,7 +20,11 @@ int main(int agrc, char * argv[])
     remainingTime = atoi(argv[1]);
     int quantum = atoi(argv[2]);
     printf("%d aho w fadely: %d w ma3aya quantum%d\n",getpid(),remainingTime,quantum);
+    key_t pKey = ftok("key", 'i');
+    int processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
     int finished = 0;
+    struct message msg;
+    msg.mtype = 1001;
     while (remainingTime > 0)
     {
         int previousTime = getClk();
@@ -38,13 +47,15 @@ int main(int agrc, char * argv[])
         }
         if(finished == 1)
         {
-            kill(getppid(),SIGINT);
-            kill(getpid(),SIGKILL);
-        }
-        
+            msg.status = 1;
+            msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            exit(0);
+        } 
         else
         {
-            kill(getppid(),SIGUSR2);
+            msg.status = 0;
+            printf("ana 5alast 7ety aho 3and %d\n",getClk());
+            msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
             kill(getpid(),SIGSTOP);
         }
             
