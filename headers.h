@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <signal.h>
 
+
 typedef short bool;
 #define true 1
 #define false 0
@@ -66,3 +67,21 @@ void destroyClk(bool terminateAll)
         killpg(getpgrp(), SIGINT);
     }
 }
+
+struct process {
+    int id;
+    int arrival; //IMPORTANT
+    int runtime;
+    int priority;
+};
+
+struct PCB {
+    struct process fileInfo;
+    int state; //waiting->0 running->1
+    int start;
+    int end;
+    int executionTime;
+    int waitingTime;
+    int turnaroundTime; 
+    pid_t pid;
+};

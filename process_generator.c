@@ -6,13 +6,6 @@ pid_t pids[2];
 int msgqid,sigshmid;
 int * sigshmaddr;
 
-struct process {
-    int id;
-    int arrival; //IMPORTANT
-    int runtime;
-    int priority;
-};
-
 void clearResources(int);
 
 void readFile(struct process ** processes_ptr)
