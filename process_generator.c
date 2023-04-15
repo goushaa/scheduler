@@ -3,8 +3,8 @@
 
 int algorithm=-1,quantum = 0,processesNumber=0;
 pid_t pids[2];
-int msgqid,sigshmid;
-int * sigshmaddr;
+int msgqid,sigshmid,newshmid;
+int * sigshmaddr, * newshmaddr ;
 
 void clearResources(int);
 
@@ -126,6 +126,12 @@ int main(int argc, char * argv[])
     key_t sigkey = ftok("key", 'n');
     sigshmid = shmget(sigkey, 4, 0666| IPC_CREAT);
     sigshmaddr = (int *) shmat(sigshmid, (void *)0, 0);
+
+    key_t newkey = ftok("key", 'q');
+    newshmid = shmget(newkey, 4, 0666| IPC_CREAT);
+    newshmaddr = (int *) shmat(newshmid, (void *)0, 0);
+    *newshmaddr == 0;
+
     printf("sig hehe: %d\n",sigshmid);
     key_t key = ftok("key", 'p');
     msgqid = msgget(key, 0666 | IPC_CREAT);
@@ -145,7 +151,7 @@ int main(int argc, char * argv[])
                 arrivedProcesses++;
             }
             *sigshmaddr = arrivedProcesses;
-            kill(pids[1],SIGUSR1);
+            *newshmaddr = 1;
         }
     }
     
@@ -168,6 +174,7 @@ void clearResources(int signum)
     //free malloc
     msgctl(msgqid, IPC_RMID, NULL);
     shmctl(sigshmid, IPC_RMID, 0);
+    shmctl(newshmid, IPC_RMID, 0);
     kill(pids[0],SIGKILL);
     kill(pids[1],SIGKILL);
     kill(getpid(),SIGKILL);

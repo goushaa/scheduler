@@ -1,12 +1,8 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
-struct message {
-    long mtype;
-    int status;
-};
-int remainingTime;
 
+int remainingTime;
 
 int main(int agrc, char * argv[])
 {
@@ -19,23 +15,41 @@ int main(int agrc, char * argv[])
     //TODO it needs to get the remaining time from somewhere
     remainingTime = atoi(argv[1]);
     int quantum = atoi(argv[2]);
-    printf("%d aho w fadely: %d w ma3aya quantum%d\n",getpid(),remainingTime,quantum);
-    key_t pKey = ftok("key", 'i');
-    int processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
+    printf("id: %d forked with remainingTime: %d & quantum %d\n",getpid(),remainingTime,quantum);
+
+    key_t pKey = ftok("key", 's');
+    int remainingshmid = shmget(pKey,4, 0);
+
+    if (remainingshmid == -1)
+        printf("Error in create\n");
+    else
+        printf("\nShared memory ID = %d\n", remainingshmid);
+
+    int *remshmaddr = (int*) shmat(remainingshmid, (void *)0, 0);
+    if (remshmaddr == (void *)-1)
+    {
+        printf("Error in attach in process %d\n",getpid());
+    }
+
+    struct sembuf rem_sem_op;
+    key_t sKey = ftok("key", 'd');
+    int semid = semget(sKey, 1, IPC_CREAT | 0666);
+    if (semid == -1)
+    {
+        printf("Error semid create in process\n");
+    }
     int finished = 0;
-    struct message msg;
-    msg.mtype = 1001;
     while (remainingTime > 0)
     {
         int previousTime = getClk();
         if(remainingTime <= quantum)
         {
-            printf("remaining %d quantum: %d pid %d\n",remainingTime,quantum,getpid());
-            quantum = remainingTime;
-            finished = 1;   
+            quantum = remainingTime; 
+            int finished = 1;
         }
         
         int count=quantum;
+        
         while(count>0)
         {
             if(getClk()-previousTime == 1)
@@ -45,21 +59,25 @@ int main(int agrc, char * argv[])
                 previousTime = getClk();
             }   
         }
+        *remshmaddr = remainingTime;
+        //up//
+        rem_sem_op.sem_num = 0;
+        rem_sem_op.sem_op = 1;
+        rem_sem_op.sem_flg = !IPC_NOWAIT;
+        semop(semid, &rem_sem_op, 1);
+        //up//
         if(finished == 1)
         {
-            msg.status = 1;
-            msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            printf("id:%d mot 3and w fadely wa2t %d\n",getpid(),remainingTime);
+            shmdt(remshmaddr);
             exit(0);
         } 
         else
         {
-            msg.status = 0;
-            printf("ana 5alast 7ety aho 3and %d\n",getClk());
-            msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            printf("id:%d 5alast 7etety w fadely wa2t %d\n",getpid(),remainingTime);
             kill(getpid(),SIGSTOP);
-        }
+        }   
             
-
     }
     
     destroyClk(false);
