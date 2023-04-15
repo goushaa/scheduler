@@ -84,16 +84,26 @@ int main(int argc, char * argv[])
         init_queue(&queue);
     }
     initClk();
+    bool hamed = false;
     while (remainingProcesses>0)
     {
+        struct PCB hamada;
         //check new
         printf("new process hena: %d\n",*newshmaddr);
-        while(is_empty(&queue) && *newshmaddr==0)
+        while(is_empty(&queue) && *newshmaddr==0 && !hamed)
         {
+            
         }
         
+        if(*remshmaddr != 0 && hamed)
+        {
+            enqueue(&queue, hamada);
+            hamed = false;
+        }
+
         if(*newshmaddr == 1)
         {
+            
             struct process temp;
             int tempProcesses = *sigshmaddr;
             for(int i =0;i<tempProcesses;i++)
@@ -120,20 +130,27 @@ int main(int argc, char * argv[])
                 kill(pids[pidCounter],SIGSTOP);
                 processTable[pidCounter].pid = pids[pidCounter];
                 enqueue(&queue, processTable[pidCounter]);
-                pidCounter++;
-                *newshmaddr = 0;
+                pidCounter++;    
             }
+            *newshmaddr = 0;
         }
         
         //perform algorithm
         switch (algorithm) {
             case 1:
+                //HPF
                 break;
             case 2:
+                //SRTN
+                //kady's recommendation:
+                //should be implemented like the round robin
+                //the difference is that it is given priority queue with quantum 1
+                //check after each quantum if the remaining time of the current process is different from recieved
+                //and so on 
                 break;
             case 3:
                 
-                struct PCB hamada;
+                
                 hamada = dequeue(&queue);
                 printf("TIME:%d process: id:%d arrival:%d runtime:%d priority:%d pid:%d\n",getClk(),hamada.fileInfo.id,hamada.fileInfo.arrival,hamada.fileInfo.runtime,hamada.fileInfo.priority,hamada.pid);
                 kill(hamada.pid,SIGCONT);
@@ -145,16 +162,15 @@ int main(int argc, char * argv[])
                 semop(semid, &rem_sem_op, 1);
                 //down//
 
-                int remainingTime = *remshmaddr;
-                if(remainingTime == 0)
+                if(*remshmaddr == 0)
                 {
-                    printf("process with id:%d finished at TIME: %d with remainingTime %d\n",hamada.pid,getClk(),remainingTime);
+                    printf("process with id:%d finished at TIME: %d with remainingTime %d\n",hamada.pid,getClk(),*remshmaddr);
                     remainingProcesses--;
                 }
                 else
                 {
-                    printf("process with id:%d exited at TIME: %d with remainingTime %d\n",hamada.pid,getClk(),remainingTime);
-                    enqueue(&queue, hamada);
+                    printf("process with id:%d exited at TIME: %d with remainingTime %d\n",hamada.pid,getClk(),*remshmaddr);
+                    hamed = true;
                 }  
                 if(remainingProcesses== 0)
                 {
