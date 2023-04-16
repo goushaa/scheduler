@@ -1,3 +1,5 @@
+#ifndef headers
+#define headers
 #include <stdio.h>      //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -86,3 +88,13 @@ struct PCB {
     int turnaroundTime; 
     pid_t pid;
 };
+
+
+
+struct message
+{
+    long mtype;
+    int status;
+};
+
+#endif

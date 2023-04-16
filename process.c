@@ -1,10 +1,6 @@
 #include "headers.h"
 
 /* Modify this file as needed*/
-struct message {
-    long mtype;
-    int status;
-};
 int remainingTime;
 
 
@@ -25,9 +21,10 @@ int main(int agrc, char * argv[])
     int finished = 0;
     struct message msg;
     msg.mtype = 1001;
-    while (remainingTime > 0)
+    while (1)
     {
         int previousTime = getClk();
+        printf("           remaining %d quantum: %d pid %d\n",remainingTime,quantum,getpid());
         if(remainingTime <= quantum)
         {
             printf("remaining %d quantum: %d pid %d\n",remainingTime,quantum,getpid());
@@ -40,11 +37,14 @@ int main(int agrc, char * argv[])
         {
             if(getClk()-previousTime == 1)
             {
+                printf("    count: %d\n",count);
+                printf("    current: %d\n",getClk());
                 count--;
                 remainingTime--;
                 previousTime = getClk();
             }   
         }
+
         if(finished == 1)
         {
             msg.status = 1;
@@ -59,7 +59,7 @@ int main(int agrc, char * argv[])
             kill(getpid(),SIGSTOP);
         }
             
-
+        printf("%d\n",remainingTime);
     }
     
     destroyClk(false);
