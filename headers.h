@@ -1,3 +1,5 @@
+#ifndef headers
+#define headers
 #include <stdio.h>      //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -10,6 +12,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <signal.h>
+#include <errno.h>
+
 
 typedef short bool;
 #define true 1
@@ -66,3 +70,31 @@ void destroyClk(bool terminateAll)
         killpg(getpgrp(), SIGINT);
     }
 }
+
+struct process {
+    int id;
+    int arrival; //IMPORTANT
+    int runtime;
+    int priority;
+};
+
+struct PCB {
+    struct process fileInfo;
+    int state; //waiting->0 running->1
+    int start;
+    int end;
+    int executionTime;
+    int waitingTime;
+    int turnaroundTime; 
+    pid_t pid;
+};
+
+
+
+struct message
+{
+    long mtype;
+    int status;
+};
+
+#endif
