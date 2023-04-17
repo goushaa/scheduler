@@ -42,7 +42,7 @@ int getClk()
 void initClk()
 {
     int shmid = shmget(SHKEY, 4, 0444);
-    printf("clk shmid: %d\n",shmid);
+
     while ((int)shmid == -1)
     {
         //Make sure that the clock exists
@@ -78,7 +78,7 @@ struct process {
     int priority;
 };
 
-struct PCB {
+typedef struct PCB {
     struct process fileInfo;
     int state; //waiting->0 running->1
     int start;
@@ -87,7 +87,7 @@ struct PCB {
     int waitingTime;
     int turnaroundTime; 
     pid_t pid;
-};
+}PCB;
 
 
 

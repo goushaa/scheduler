@@ -1,24 +1,29 @@
 #include "headers.h"
 #include "queue.h" //for round robin
-#include "HPF.h"
+#include "HPF.h"   //for HPF
 
+// for shared memory
 int msgqid, sigshmid;
 int *sigshmaddr;
 
+// for message queue
+int processmsgqid;
+struct message msg;
+
+// for PCBs in the scheduler
 struct PCB *processTable;
 pid_t *pids;
 int pidCounter = 0;
-int algorithm, quantum;
-Queue queue;
-
 int remainingProcesses;
 
-// Mustafa
-struct PCB *current_PCB;
+Queue queue; // for round robin
+int algorithm, quantum;
 
-struct PCB hamada;
-bool hamed = false;
+// for the current PCB running
+struct PCB *HPF_current_PCB;
+struct PCB RR_current_PCB;
 
+// Handler for receiving signal from process generator when a process is arrived
 void handler1(int signo)
 {
     if (pidCounter == 0 && algorithm == 3)
@@ -30,7 +35,7 @@ void handler1(int signo)
     for (int i = 0; i < tempProcesses; i++)
     {
         msgrcv(msgqid, &temp, sizeof(struct process), 0, !IPC_NOWAIT);
-        printf("recieve process,counter:%d, id: %d, arrival: %d, runtime: %d, priority: %d\n", pidCounter, temp.id, temp.arrival, temp.runtime, temp.priority);
+        printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority);
         processTable[pidCounter].fileInfo = temp;
         processTable[pidCounter].state = 0;
 
@@ -66,13 +71,97 @@ void handler1(int signo)
     }
 }
 
+// Function for HPF implementation
+void HPF_Algo()
+{
+    while (remainingProcesses > 0)
+    {
+        while (pisempty() && HPF_current_PCB == NULL)
+        {
+        }
+
+        /*Switch to the next PCB*/
+        HPF_current_PCB = ppeek();
+        pdequeue();
+        kill(HPF_current_PCB->pid, SIGCONT);
+
+        /*Set Start Time*/
+        HPF_current_PCB->start = getClk();
+        HPF_current_PCB->state = 1;
+
+        /*Wait untill process finish its runtime*/
+        while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1)
+        {
+        }
+
+        /*Some Calculations*/
+        HPF_current_PCB->end = getClk();
+        HPF_current_PCB->waitingTime = HPF_current_PCB->start - HPF_current_PCB->fileInfo.arrival;
+        HPF_current_PCB->turnaroundTime = HPF_current_PCB->end - HPF_current_PCB->fileInfo.arrival;
+        HPF_current_PCB->executionTime = HPF_current_PCB->end - HPF_current_PCB->start;
+        HPF_current_PCB->state = 0;
+        remainingProcesses--;
+        printf("Running process, id: %d, start: %d, finish: %d, priority: %d, ", HPF_current_PCB->fileInfo.id, HPF_current_PCB->start, HPF_current_PCB->end, HPF_current_PCB->fileInfo.priority);
+        printf("waiting: %d, turnaround: %d, execution: %d\n\n", HPF_current_PCB->waitingTime, HPF_current_PCB->turnaroundTime, HPF_current_PCB->executionTime);
+    }
+}
+
+// Function for RR implementation
+void RR_Algo()
+{
+    while (remainingProcesses > 0)
+    {
+        while (is_empty(&queue))
+        {
+        }
+
+        RR_current_PCB = dequeue(&queue);
+        printf("Running process with id: %d running on time: %d\n", RR_current_PCB.fileInfo.id, getClk());
+        kill(RR_current_PCB.pid, SIGCONT);
+        RR_current_PCB.state = 1;
+        // printf("Running process with id: %d return to run on time:%d",RR_current_PCB.fileInfo.id,getClk());
+
+        /*Set Start Time*/
+        if (RR_current_PCB.start == 0)
+            RR_current_PCB.start = getClk();
+
+        /*Wait untill process finish its quantum*/
+        while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1)
+        {
+        }
+
+        if (msg.status == 1)
+        {
+            /*Some Calculations*/
+            RR_current_PCB.end = getClk();
+            RR_current_PCB.turnaroundTime = RR_current_PCB.end - RR_current_PCB.fileInfo.arrival;
+            RR_current_PCB.executionTime = RR_current_PCB.end - RR_current_PCB.start;
+            RR_current_PCB.waitingTime = RR_current_PCB.turnaroundTime - RR_current_PCB.fileInfo.runtime;
+            RR_current_PCB.state = 0;
+            remainingProcesses--;
+            printf("Running process, id: %d, start: %d, finish: %d, priority: %d, ", RR_current_PCB.fileInfo.id, RR_current_PCB.start, RR_current_PCB.end, RR_current_PCB.fileInfo.priority);
+            printf("waiting: %d, turnaround: %d, execution: %d\n\n", RR_current_PCB.waitingTime, RR_current_PCB.turnaroundTime, RR_current_PCB.executionTime);
+        }
+        else
+        {
+            RR_current_PCB.state = 0;
+            enqueue(&queue, RR_current_PCB);
+        }
+    }
+}
+
+// Function for SRTN implementation
+void SRTN_Algo()
+{
+}
+
 int main(int argc, char *argv[])
 {
     signal(SIGUSR1, handler1);
 
     if (argc != 4)
     {
-        printf("sad ya5oya\n");
+        printf("ERROR, few arguments\n");
     }
 
     algorithm = atoi(argv[1]);
@@ -82,102 +171,38 @@ int main(int argc, char *argv[])
     pids = (pid_t *)malloc(processesNumber * sizeof(pid_t));
     remainingProcesses = processesNumber;
 
-    printf("%d aho w ma3aya, ", getpid());
-    printf("algorithm: %d, ", algorithm);
-    printf("quantum: %d, ", quantum);
-    printf("no.: %d\n", processesNumber);
-
+    // for message queue of receiving from process generator
     key_t key = ftok("key", 'p');
     msgqid = msgget(key, 0666 | IPC_CREAT);
 
-    key_t pKey = ftok("key", 'i');
-    int processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
-    struct message msg;
-
+    // shared memory of receiving from process generator for special case of coming many processes in same time
     key_t sigkey = ftok("key", 'n');
     sigshmid = shmget(sigkey, 4, 0666 | IPC_CREAT);
     sigshmaddr = (int *)shmat(sigshmid, (void *)0, 0);
-    printf("sig hehe: %d\n", sigshmid);
+
+    // for message queue of receiving from process
+    key_t pKey = ftok("key", 'i');
+    processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
+
     initClk();
+
     switch (algorithm)
     {
     case 1:
-        while (remainingProcesses > 0)
-        {
-            while (pisempty() && current_PCB == NULL)
-            {
-            }
-
-            /*Switch to the next PCB*/
-            current_PCB = ppeek();
-            pdequeue();
-            kill(current_PCB->pid, SIGCONT);
-            /*Set Start Time*/
-            current_PCB->start = getClk();
-            current_PCB->state = 1;
-
-            while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1)
-            {
-            }
-            /*Some Calculations*/
-            current_PCB->end = getClk();
-            current_PCB->waitingTime = current_PCB->start - current_PCB->fileInfo.arrival;
-            current_PCB->turnaroundTime = current_PCB->end - current_PCB->fileInfo.arrival;
-            current_PCB->executionTime = current_PCB->end - current_PCB->start;
-            current_PCB->state = 0;
-            printf("running process, id: %d, start: %d, finish: %d, priority: %d\n", current_PCB->fileInfo.id, current_PCB->start, current_PCB->end, current_PCB->fileInfo.priority);
-
-            remainingProcesses--;
-        }
+        HPF_Algo();
         break;
     case 2:
-        while (remainingProcesses > 0)
-        {
-        }
+        SRTN_Algo();
         break;
     case 3:
-        while (remainingProcesses > 0)
-        {
-            while (is_empty(&queue))
-            {
-            }
-
-            hamada = dequeue(&queue);
-            printf("hamada info:\n");
-            printf("fileInfo: id:%d arrival:%d runtime:%d priority:%d\n", hamada.fileInfo.id, hamada.fileInfo.arrival, hamada.fileInfo.runtime, hamada.fileInfo.priority);
-            printf("pid: %d\n", hamada.pid);
-            printf("Remaining Processes: %d, START:%d\n", remainingProcesses, getClk());
-            kill(hamada.pid, SIGCONT);
-            printf("xxxxxxxxx\n");
-
-            while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1)
-            {
-                printf("YYYYYYYYYY\n");
-            }
-
-            printf("ana 3adeet el recieve\n");
-            if (msg.status == 1)
-            {
-                printf("ID:%d finished at time: %d\n", hamada.pid, getClk());
-                remainingProcesses--;
-            }
-            else
-            {
-                printf("ID:%d exited at time: %d\n", hamada.pid, getClk());
-                enqueue(&queue, hamada);
-            }
-        }
+        RR_Algo();
         break;
     default:
-        printf("Invalid value\n");
         break;
     }
     msgctl(processmsgqid, IPC_RMID, NULL);
-
-    printf("\nDONE\n");
-
     // TODO implement the scheduler :)
     // upon termination release the clock resources.
-
-    destroyClk(true);
+    printf("\n........DONE........\n");
+    //destroyClk(true);
 }
