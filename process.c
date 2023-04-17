@@ -11,26 +11,27 @@ int main(int agrc, char * argv[])
     initClk();
     if(agrc != 3)
     {
-        printf("7aga mesh shaghala fel process\n");
         exit(-1);
     }
     //TODO it needs to get the remaining time from somewhere
     remainingTime = atoi(argv[1]);
     int quantum = atoi(argv[2]);
-    printf("%d aho w fadely: %d w ma3aya quantum%d\n",getpid(),remainingTime,quantum);
+    
     key_t pKey = ftok("key", 'i');
     int processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
+
     int finished = 0;
     struct message msg;
     msg.mtype = 1001;
+
     printf("remaining time = %d",remainingTime);
+
     while (1)
     {
+        //printf("Process %d: having RemainingTime = %d and Quantum = %d\n",getpid(),remainingTime,quantum);
         int previousTime = getClk();
-        printf("           remaining %d quantum: %d pid %d\n",remainingTime,quantum,getpid());
         if(remainingTime <= quantum)
         {
-            printf("remaining %d quantum: %d pid %d\n",remainingTime,quantum,getpid());
             quantum = remainingTime;
             finished = 1;   
         }
@@ -40,8 +41,8 @@ int main(int agrc, char * argv[])
         {
             if(getClk()-previousTime == 1)
             {
-                printf("    count: %d\n",count);
-                printf("    current: %d\n",getClk());
+                //printf("Count: %d\n",count);
+                //printf("Current: %d\n",getClk());
                 count--;
                 remainingTime--;
                 previousTime = getClk();
@@ -61,7 +62,6 @@ int main(int agrc, char * argv[])
         else
         {
             msg.status = 0;
-            // printf("ana 5alast 7ety aho 3and %d\n",getClk());
             if(!interrupt)
                 msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
             interrupt = 0;
@@ -69,9 +69,10 @@ int main(int agrc, char * argv[])
         }
         sec=0;
         printf("%d\n",remainingTime);
+
     }
     
-    destroyClk(false);
+    //destroyClk(false);
     
     return 0;
 }
