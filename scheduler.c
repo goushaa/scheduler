@@ -200,46 +200,7 @@ void RR_Algo()
 // Function for SRTN implementation
 void SRTN_Algo()
 {
-}
-
-int main(int argc, char *argv[])
-{
-    signal(SIGUSR1, handler1);
-
-    if (argc != 4)
-    {
-        printf("ERROR, few arguments\n");
-    }
-
-    algorithm = atoi(argv[1]);
-    quantum = atoi(argv[2]);
-    processesNumber = atoi(argv[3]);
-    processTable = (struct PCB *)malloc(processesNumber * sizeof(struct PCB));
-    pids = (pid_t *)malloc(processesNumber * sizeof(pid_t));
-    remainingProcesses = processesNumber;
-
-    // for message queue of receiving from process generator
-    key_t key = ftok("key", 'p');
-    msgqid = msgget(key, 0666 | IPC_CREAT);
-
-    // shared memory of receiving from process generator for special case of coming many processes in same time
-    key_t sigkey = ftok("key", 'n');
-    sigshmid = shmget(sigkey, 4, 0666 | IPC_CREAT);
-    sigshmaddr = (int *)shmat(sigshmid, (void *)0, 0);
-
-    // for message queue of receiving from process
-    key_t pKey = ftok("key", 'i');
-    processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
-
-    initClk();
-
-    switch (algorithm)
-    {
-    case 1:
-        HPF_Algo();
-        break;
-    case 2:
-        while(remainingProcesses>0)
+     while(remainingProcesses>0)
             {
                 printf("enter and queue cnt = %d\n",getcount(&priorityQueue));
                 while(isEmpty(&priorityQueue)){
@@ -281,7 +242,46 @@ int main(int argc, char *argv[])
                 }
 
             }
+}
 
+int main(int argc, char *argv[])
+{
+    signal(SIGUSR1, handler1);
+
+    if (argc != 4)
+    {
+        printf("ERROR, few arguments\n");
+    }
+
+    algorithm = atoi(argv[1]);
+    quantum = atoi(argv[2]);
+    processesNumber = atoi(argv[3]);
+    processTable = (struct PCB *)malloc(processesNumber * sizeof(struct PCB));
+    pids = (pid_t *)malloc(processesNumber * sizeof(pid_t));
+    remainingProcesses = processesNumber;
+
+    // for message queue of receiving from process generator
+    key_t key = ftok("key", 'p');
+    msgqid = msgget(key, 0666 | IPC_CREAT);
+
+    // shared memory of receiving from process generator for special case of coming many processes in same time
+    key_t sigkey = ftok("key", 'n');
+    sigshmid = shmget(sigkey, 4, 0666 | IPC_CREAT);
+    sigshmaddr = (int *)shmat(sigshmid, (void *)0, 0);
+
+    // for message queue of receiving from process
+    key_t pKey = ftok("key", 'i');
+    processmsgqid = msgget(pKey, 0666 | IPC_CREAT);
+
+    initClk();
+
+    switch (algorithm)
+    {
+    case 1:
+        HPF_Algo();
+        break;
+    case 2:
+       SRTN_Algo();
         break;
     case 3:
         RR_Algo();
