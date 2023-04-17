@@ -2,7 +2,9 @@
 
 /* Modify this file as needed*/
 int remainingTime;
-
+bool interrupt = 0;
+bool sec=0;
+void handler(int signum);
 
 int main(int agrc, char * argv[])
 {
@@ -21,6 +23,8 @@ int main(int agrc, char * argv[])
     int finished = 0;
     struct message msg;
     msg.mtype = 1001;
+
+    printf("remaining time = %d",remainingTime);
 
     while (1)
     {
@@ -42,24 +46,39 @@ int main(int agrc, char * argv[])
                 count--;
                 remainingTime--;
                 previousTime = getClk();
+                sec=1;
+
             }   
+            if(interrupt)break;  
         }
 
-        if(finished == 1)
+        if(sec && finished == 1)
         {
             msg.status = 1;
             msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            printf("process %d is terminated ",getpid());
             exit(0);
         } 
         else
         {
             msg.status = 0;
-            msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            if(!interrupt)
+                msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
+            interrupt = 0;
             kill(getpid(),SIGSTOP);
         }
+        sec=0;
+        printf("%d\n",remainingTime);
+
     }
     
     //destroyClk(false);
     
     return 0;
+}
+
+void handler(int signum){
+
+    interrupt = 1;
+    signal(signum,handler);
 }
