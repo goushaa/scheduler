@@ -1,6 +1,7 @@
 #include "headers.h"
 #include "queue.h" //for round robin
 #include "HPF.h"
+#include "minHeap.c"
 
 int msgqid, sigshmid;
 int *sigshmaddr;
@@ -9,22 +10,58 @@ struct PCB *processTable;
 pid_t *pids;
 int pidCounter = 0;
 int algorithm, quantum;
+int processesNumber;
 Queue queue;
+minHeap priorityQueue;
+
 
 int remainingProcesses;
 
 // Mustafa
 struct PCB *current_PCB;
 
+//allam
+struct PCB *currentPCB;
+int runningProcess = -1,prevTime=0;
+bool interrupt = 0;
+
 struct PCB hamada;
 bool hamed = false;
 
+void proccesEnd(struct PCB *process){
+    process->end = getClk();
+    process->waitingTime =process->start -process->fileInfo.arrival;
+    process->turnaroundTime =process->end -process->fileInfo.arrival;
+    process->executionTime =process->end -process->start;
+}
+
 void handler1(int signo)
 {
-    if (pidCounter == 0 && algorithm == 3)
-    {
+    if(pidCounter == 0 )
+    {   // refactor later and make it initilazie in main
+        if(algorithm==2)
+        initialize(processesNumber,&priorityQueue);
+        if(algorithm==3)
         init_queue(&queue);
+        
     }
+    
+    if(algorithm == 2 && runningProcess != -1){
+        interrupt = 1;
+        kill(runningProcess,SIGUSR1);
+        int currentTime=getClk();
+        if(prevTime<currentTime){
+            currentPCB->remainingTime--;
+            currentPCB->heapPriority--;
+        }
+        if(currentPCB->remainingTime > 0)
+            insertValue(currentPCB,&priorityQueue);
+        else {
+            remainingProcesses--;
+            proccesEnd(currentPCB);
+        }
+    }
+
     struct process temp;
     int tempProcesses = *sigshmaddr;
     for (int i = 0; i < tempProcesses; i++)
@@ -33,6 +70,8 @@ void handler1(int signo)
         printf("recieve process,counter:%d, id: %d, arrival: %d, runtime: %d, priority: %d\n", pidCounter, temp.id, temp.arrival, temp.runtime, temp.priority);
         processTable[pidCounter].fileInfo = temp;
         processTable[pidCounter].state = 0;
+        processTable[pidCounter].remainingTime = temp.runtime;
+        processTable[pidCounter].start = -1;
 
         pids[pidCounter] = fork();
         if (pids[pidCounter] == 0)
@@ -57,6 +96,8 @@ void handler1(int signo)
             penqueue(&processTable[pidCounter], temp.priority);
             break;
         case 2:
+            processTable[pidCounter].heapPriority = processTable[pidCounter].remainingTime;
+            insertValue(&processTable[pidCounter],&priorityQueue);
             break;
         case 3:
             enqueue(&queue, processTable[pidCounter]);
@@ -77,7 +118,7 @@ int main(int argc, char *argv[])
 
     algorithm = atoi(argv[1]);
     quantum = atoi(argv[2]);
-    int processesNumber = atoi(argv[3]);
+    processesNumber = atoi(argv[3]);
     processTable = (struct PCB *)malloc(processesNumber * sizeof(struct PCB));
     pids = (pid_t *)malloc(processesNumber * sizeof(pid_t));
     remainingProcesses = processesNumber;
@@ -131,9 +172,48 @@ int main(int argc, char *argv[])
         }
         break;
     case 2:
-        while (remainingProcesses > 0)
-        {
-        }
+        while(remainingProcesses>0)
+            {
+                printf("enter and queue cnt = %d\n",getcount(&priorityQueue));
+                while(isEmpty(&priorityQueue)){
+
+                }
+                currentPCB = heapExtractMin(&priorityQueue);
+                runningProcess = currentPCB->pid;
+                kill(currentPCB->pid,SIGCONT);
+                printf("running procces %d and it's remaining time is %d\n",currentPCB->fileInfo.id,currentPCB->remainingTime);
+                prevTime=getClk();
+                if(currentPCB->start == -1 ) 
+                    currentPCB->start = prevTime;
+                
+                currentPCB->state = 1;
+
+                while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1 && !interrupt)
+                {
+
+                }
+                printf("end\n");
+
+                if(interrupt){
+                    interrupt = 0;
+                    continue;
+                }
+                
+                currentPCB->state = 0;
+
+                if(msg.status == 1){
+                    proccesEnd(currentPCB);
+                    printf("ID:%d finished at time: %d\n", currentPCB->pid, getClk());
+                    remainingProcesses--;
+                }
+                else{
+                    currentPCB->remainingTime--;
+                    currentPCB->heapPriority--;
+                    runningProcess = -1;
+                    insertValue(currentPCB,&priorityQueue);
+                }
+
+            }
         break;
     case 3:
         while (remainingProcesses > 0)

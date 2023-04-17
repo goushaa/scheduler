@@ -85,7 +85,9 @@ struct PCB {
     int end;
     int executionTime;
     int waitingTime;
-    int turnaroundTime; 
+    int turnaroundTime;
+    int remainingTime; 
+    int heapPriority;
     pid_t pid;
 };
 

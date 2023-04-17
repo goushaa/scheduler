@@ -61,7 +61,10 @@ void chooseAlgorithm()
         printf("Please enter the number of scheduling algorithm you want to execute: ");
         scanf("%d",&algorithm);
     }
-    if(algorithm == 3)
+    if(algorithm == 2){
+     quantum = 1;   
+    }
+    else if(algorithm == 3)
     {
         
         while ( quantum < 1 )
