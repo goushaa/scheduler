@@ -1,9 +1,9 @@
 #include "headers.h"
-#include "queue.h" //for round robin
+#include "queue.h"
 #include "HPF.h"
 #include "minHeap.c"
 
-
+/***************************************************************Variables***************************************************************/
 // for shared memory
 int msgqid, sigshmid;
 int *sigshmaddr;
@@ -14,6 +14,7 @@ struct message msg;
 
 // for PCBs in the scheduler
 struct PCB *processTable;
+struct PCB *originProcessTable;
 pid_t *pids;
 int pidCounter = 0;
 
@@ -25,49 +26,115 @@ int remainingProcesses;
 Queue queue; // for round robin
 int algorithm, quantum;
 
-
-//allam
-struct PCB *currentPCB;
-int runningProcess = -1,prevTime=0;
-bool interrupt = 0;
-
-
-void proccesEnd(struct PCB *process){
-    process->end = getClk();
-    process->waitingTime =process->start -process->fileInfo.arrival;
-    process->turnaroundTime =process->end -process->fileInfo.arrival;
-    process->executionTime =process->end -process->start;
-}
-
-
 // for the current PCB running
 struct PCB *HPF_current_PCB;
 struct PCB RR_current_PCB;
 
-// Handler for receiving signal from process generator when a process is arrived
+// allam
+struct PCB *currentPCB;
+int runningProcess = -1, prevTime = 0;
+bool interrupt = 0;
+void proccesEnd(struct PCB *process)
+{
+    process->end = getClk();
+    process->waitingTime = process->start - process->fileInfo.arrival;
+    process->turnaroundTime = process->end - process->fileInfo.arrival;
+    process->executionTime = process->end - process->start;
+}
 
+// for memory
+int memoryAlgorithm = -1;
+int memory[1024];
+
+/***************************************************************Memory Algorithms***************************************************************/
+void First_Fit_Allocation(int id)
+{
+    processTable = originProcessTable;
+    bool flag;
+    int i;
+    for (i = 0; i < 1024; i++)
+    {
+        if (memory[i] == -1)
+        {
+            flag = true;
+            for (int j = i; j < i + processTable[id].fileInfo.memSize; j++)
+            {
+                if (memory[j] != -1)
+                {
+                    flag = false;
+                    break;
+                }
+            }
+
+            if (flag)
+            {
+                for (int j = i; j < i + processTable[id].fileInfo.memSize; j++)
+                    memory[j] = processTable[id].fileInfo.id;
+
+                break;
+            }
+        }
+    }
+
+    if (i == 1024)
+        printf("ERROR!!! Memory is Full\n");
+
+    printf("Memory after Allocation:\n");
+    for (int i = 0; i < 65; i++)
+        printf("%d ", memory[i]);
+    printf("\n\n");
+}
+
+void First_Fit_Deallocation(int id)
+{
+    processTable = originProcessTable;
+
+    for (int i = 0; i < 1024; i++)
+    {
+        if (memory[i] == processTable[id].fileInfo.id)
+        {
+            for (int j = i; j < i + processTable[id].fileInfo.memSize; j++)
+                memory[j] = -1;
+
+            break;
+        }
+    }
+
+    printf("Memory after Deallocation:\n");
+    for (int i = 0; i < 65; i++)
+        printf("%d ", memory[i]);
+    printf("\n\n");
+}
+
+/***************************************************************Send/Recieve Handler***************************************************************/
+
+// Handler for receiving signal from process generator when a process is arrived
 void handler1(int signo)
 {
-    if(pidCounter == 0 )
-    {   // refactor later and make it initilazie in main
-        if(algorithm==2)
-        initialize(processesNumber,&priorityQueue);
-        if(algorithm==3)
-        init_queue(&queue);
-        
+    processTable = originProcessTable;
+
+    if (pidCounter == 0)
+    { // refactor later and make it initilazie in main
+        if (algorithm == 2)
+            initialize(processesNumber, &priorityQueue);
+        if (algorithm == 3)
+            init_queue(&queue);
     }
-    
-    if(algorithm == 2 && runningProcess != -1){
+
+    if (algorithm == 2 && runningProcess != -1)
+    {
         interrupt = 1;
-        kill(runningProcess,SIGUSR1);
-        int currentTime=getClk();
-        if(prevTime<currentTime){
+        kill(runningProcess, SIGUSR1);
+        int currentTime = getClk();
+        if (prevTime < currentTime)
+        {
             currentPCB->remainingTime--;
             currentPCB->heapPriority--;
         }
-        if(currentPCB->remainingTime > 0)
-            insertValue(currentPCB,&priorityQueue);
-        else {
+        if (currentPCB->remainingTime > 0)
+            insertValue(currentPCB, &priorityQueue);
+        else
+        {
             remainingProcesses--;
             proccesEnd(currentPCB);
         }
@@ -78,11 +145,20 @@ void handler1(int signo)
     for (int i = 0; i < tempProcesses; i++)
     {
         msgrcv(msgqid, &temp, sizeof(struct process), 0, !IPC_NOWAIT);
-        printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority);
+        printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority, temp.memSize);
         processTable[pidCounter].fileInfo = temp;
         processTable[pidCounter].state = 0;
         processTable[pidCounter].remainingTime = temp.runtime;
         processTable[pidCounter].start = -1;
+
+        switch (memoryAlgorithm)
+        {
+        case 1:
+            First_Fit_Allocation(pidCounter);
+            break;
+        case 2:
+            break;
+        }
 
         pids[pidCounter] = fork();
         if (pids[pidCounter] == 0)
@@ -108,7 +184,7 @@ void handler1(int signo)
             break;
         case 2:
             processTable[pidCounter].heapPriority = processTable[pidCounter].remainingTime;
-            insertValue(&processTable[pidCounter],&priorityQueue);
+            insertValue(&processTable[pidCounter], &priorityQueue);
             break;
         case 3:
             enqueue(&queue, processTable[pidCounter]);
@@ -118,12 +194,13 @@ void handler1(int signo)
     }
 }
 
+/***************************************************************Scheduler Algorithms***************************************************************/
 // Function for HPF implementation
 void HPF_Algo()
 {
     while (remainingProcesses > 0)
     {
-        while (pisempty() && HPF_current_PCB == NULL)
+        while (pisempty())
         {
         }
 
@@ -148,6 +225,14 @@ void HPF_Algo()
         HPF_current_PCB->executionTime = HPF_current_PCB->end - HPF_current_PCB->start;
         HPF_current_PCB->state = 0;
         remainingProcesses--;
+        switch (memoryAlgorithm)
+        {
+        case 1:
+            First_Fit_Deallocation(HPF_current_PCB->fileInfo.id - 1);
+            break;
+        case 2:
+            break;
+        }
         printf("Running process, id: %d, start: %d, finish: %d, priority: %d, ", HPF_current_PCB->fileInfo.id, HPF_current_PCB->start, HPF_current_PCB->end, HPF_current_PCB->fileInfo.priority);
         printf("waiting: %d, turnaround: %d, execution: %d\n\n", HPF_current_PCB->waitingTime, HPF_current_PCB->turnaroundTime, HPF_current_PCB->executionTime);
     }
@@ -169,7 +254,7 @@ void RR_Algo()
         // printf("Running process with id: %d return to run on time:%d",RR_current_PCB.fileInfo.id,getClk());
 
         /*Set Start Time*/
-        if (RR_current_PCB.start == 0)
+        if (RR_current_PCB.start == -1)
             RR_current_PCB.start = getClk();
 
         /*Wait untill process finish its quantum*/
@@ -186,6 +271,14 @@ void RR_Algo()
             RR_current_PCB.waitingTime = RR_current_PCB.turnaroundTime - RR_current_PCB.fileInfo.runtime;
             RR_current_PCB.state = 0;
             remainingProcesses--;
+            switch (memoryAlgorithm)
+            {
+            case 1:
+                First_Fit_Deallocation(RR_current_PCB.fileInfo.id - 1);
+                break;
+            case 2:
+                break;
+            }
             printf("Running process, id: %d, start: %d, finish: %d, priority: %d, ", RR_current_PCB.fileInfo.id, RR_current_PCB.start, RR_current_PCB.end, RR_current_PCB.fileInfo.priority);
             printf("waiting: %d, turnaround: %d, execution: %d\n\n", RR_current_PCB.waitingTime, RR_current_PCB.turnaroundTime, RR_current_PCB.executionTime);
         }
@@ -200,55 +293,65 @@ void RR_Algo()
 // Function for SRTN implementation
 void SRTN_Algo()
 {
-     while(remainingProcesses>0)
+    while (remainingProcesses > 0)
+    {
+        printf("enter and queue cnt = %d\n", getcount(&priorityQueue));
+        while (isEmpty(&priorityQueue))
+        {
+        }
+        currentPCB = heapExtractMin(&priorityQueue);
+        runningProcess = currentPCB->pid;
+        kill(currentPCB->pid, SIGCONT);
+        printf("running procces %d and it's remaining time is %d\n", currentPCB->fileInfo.id, currentPCB->remainingTime);
+        prevTime = getClk();
+        if (currentPCB->start == -1)
+            currentPCB->start = prevTime;
+
+        currentPCB->state = 1;
+
+        while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1 && !interrupt)
+        {
+        }
+        printf("end\n");
+
+        if (interrupt)
+        {
+            interrupt = 0;
+            continue;
+        }
+
+        currentPCB->state = 0;
+
+        if (msg.status == 1)
+        {
+            proccesEnd(currentPCB);
+            printf("ID:%d finished at time: %d\n", currentPCB->pid, getClk());
+            remainingProcesses--;
+            switch (memoryAlgorithm)
             {
-                printf("enter and queue cnt = %d\n",getcount(&priorityQueue));
-                while(isEmpty(&priorityQueue)){
-
-                }
-                currentPCB = heapExtractMin(&priorityQueue);
-                runningProcess = currentPCB->pid;
-                kill(currentPCB->pid,SIGCONT);
-                printf("running procces %d and it's remaining time is %d\n",currentPCB->fileInfo.id,currentPCB->remainingTime);
-                prevTime=getClk();
-                if(currentPCB->start == -1 ) 
-                    currentPCB->start = prevTime;
-                
-                currentPCB->state = 1;
-
-                while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1 && !interrupt)
-                {
-
-                }
-                printf("end\n");
-
-                if(interrupt){
-                    interrupt = 0;
-                    continue;
-                }
-                
-                currentPCB->state = 0;
-
-                if(msg.status == 1){
-                    proccesEnd(currentPCB);
-                    printf("ID:%d finished at time: %d\n", currentPCB->pid, getClk());
-                    remainingProcesses--;
-                }
-                else{
-                    currentPCB->remainingTime--;
-                    currentPCB->heapPriority--;
-                    runningProcess = -1;
-                    insertValue(currentPCB,&priorityQueue);
-                }
-
+            case 1:
+                First_Fit_Deallocation(currentPCB->fileInfo.id - 1);
+                break;
+            case 2:
+                break;
             }
+        }
+        else
+        {
+            currentPCB->remainingTime--;
+            currentPCB->heapPriority--;
+            runningProcess = -1;
+            insertValue(currentPCB, &priorityQueue);
+        }
+    }
 }
 
+/***************************************************************MAIN***************************************************************/
 int main(int argc, char *argv[])
 {
     signal(SIGUSR1, handler1);
 
-    if (argc != 4)
+    if (argc != 5)
     {
         printf("ERROR, few arguments\n");
     }
@@ -256,9 +359,16 @@ int main(int argc, char *argv[])
     algorithm = atoi(argv[1]);
     quantum = atoi(argv[2]);
     processesNumber = atoi(argv[3]);
+    memoryAlgorithm = atoi(argv[4]);
+
     processTable = (struct PCB *)malloc(processesNumber * sizeof(struct PCB));
+    originProcessTable = processTable;
     pids = (pid_t *)malloc(processesNumber * sizeof(pid_t));
     remainingProcesses = processesNumber;
+
+    // initalize memory
+    for (int i = 0; i < 1024; i++)
+        memory[i] = -1;
 
     // for message queue of receiving from process generator
     key_t key = ftok("key", 'p');
@@ -281,7 +391,7 @@ int main(int argc, char *argv[])
         HPF_Algo();
         break;
     case 2:
-       SRTN_Algo();
+        SRTN_Algo();
         break;
     case 3:
         RR_Algo();
@@ -293,5 +403,5 @@ int main(int argc, char *argv[])
     // TODO implement the scheduler :)
     // upon termination release the clock resources.
     printf("\n........DONE........\n");
-    //destroyClk(true);
+    // destroyClk(true);
 }

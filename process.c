@@ -24,7 +24,7 @@ int main(int agrc, char * argv[])
     struct message msg;
     msg.mtype = 1001;
 
-    printf("remaining time = %d",remainingTime);
+ //   printf("remaining time = %d",remainingTime);
 
     while (1)
     {
@@ -56,7 +56,7 @@ int main(int agrc, char * argv[])
         {
             msg.status = 1;
             msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
-            printf("process %d is terminated ",getpid());
+            //printf("process %d is terminated ",getpid());
             exit(0);
         } 
         else
@@ -68,7 +68,7 @@ int main(int agrc, char * argv[])
             kill(getpid(),SIGSTOP);
         }
         sec=0;
-        printf("%d\n",remainingTime);
+        //printf("%d\n",remainingTime);
 
     }
     

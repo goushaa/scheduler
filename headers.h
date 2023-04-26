@@ -76,6 +76,7 @@ struct process {
     int arrival; //IMPORTANT
     int runtime;
     int priority;
+    int memSize;
 };
 
 typedef struct PCB {
@@ -87,7 +88,7 @@ typedef struct PCB {
     int waitingTime;
     int turnaroundTime;
     int remainingTime; 
-    int heapPriority;
+    int heapPriority;   ///ehh daa ya allam
     pid_t pid;
 }PCB;
 

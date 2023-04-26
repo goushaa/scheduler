@@ -1,7 +1,7 @@
 #include "headers.h"
 #include <string.h>
 
-int algorithm = -1, quantum = 0, processesNumber = 0;
+int algorithm = -1, memoryAlgorithm = -1, quantum = 0, processesNumber = 0;
 pid_t pids[2];
 
 int msgqid, sigshmid;
@@ -44,7 +44,7 @@ void readFile(struct process **processes_ptr)
     *processes_ptr = (struct process *)malloc(processesNumber * sizeof(struct process));
 
     // #id arrival runtime priority
-    int id, arrival, runtime, priority;
+    int id, arrival, runtime, priority,memory;
     int i = 0;
     while (fgets(line, sizeof(line), file))
     {
@@ -52,12 +52,13 @@ void readFile(struct process **processes_ptr)
         {
             continue; // Skip comment lines
         }
-        if (sscanf(line, "%d\t%d\t%d\t%d", &id, &arrival, &runtime, &priority) == 4)
+        if (sscanf(line, "%d\t%d\t%d\t%d\t%d", &id, &arrival, &runtime, &priority, &memory) == 5)
         {
             (*processes_ptr + i)->id = id; // use *processes_ptr to access the allocated memory
             (*processes_ptr + i)->arrival = arrival;
             (*processes_ptr + i)->runtime = runtime;
             (*processes_ptr + i)->priority = priority;
+            (*processes_ptr + i)->memSize = memory;
             i++;
         }
     }
@@ -65,8 +66,16 @@ void readFile(struct process **processes_ptr)
     fclose(file);
 }
 
-void chooseAlgorithm()
+void chooseAlgorithms()
 {
+    while (memoryAlgorithm != 1 && memoryAlgorithm != 2)
+    {
+        printf("1. First Fit Memory Allocation\n");
+        printf("2. Buddy Memory Allocation\n");
+        printf("Please enter the number of memory algorithm you want to execute: ");
+        scanf("%d", &memoryAlgorithm);
+    }
+
     while (algorithm != 1 && algorithm != 2 && algorithm != 3)
     {
         printf("1. Non-preemptive Highest Priority First (HPF)\n");
@@ -110,10 +119,12 @@ void initiateChildren()
                 char alg_str[10];
                 char qntm_str[10];
                 char prnm_str[10];
+                char memalg_str[10];
                 sprintf(alg_str, "%d", algorithm);
                 sprintf(qntm_str, "%d", quantum);
                 sprintf(prnm_str, "%d", processesNumber);
-                execl("./scheduler.out", "scheduler.out", alg_str, qntm_str, prnm_str, NULL);
+                sprintf(memalg_str, "%d", memoryAlgorithm);
+                execl("./scheduler.out", "scheduler.out", alg_str, qntm_str, prnm_str, memalg_str, NULL);
             }
         }
     }
@@ -128,10 +139,10 @@ int main(int argc, char *argv[])
     readFile(&processes);
     for (int i = 0; i < processesNumber; i++)
     {
-        printf("when i = %d, id: %d, arrival: %d, runtime: %d, priority: %d\n", i, (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority);
+        printf("when i = %d, id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", i, (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
     }
-    // 2. Ask the user for the chosen scheduling algorithm and its parameters, if there are any.
-    chooseAlgorithm();
+    // 2. Ask the user for the chosen memory algorithm and scheduling algorithm and its parameters, if there are any.
+    chooseAlgorithms();
     // 3. Initiate and create the scheduler and clock processes.
     initiateChildren();
 
@@ -156,7 +167,7 @@ int main(int argc, char *argv[])
             int arrivedProcesses = 0;
             while ((processes + i)->arrival == currentTime)
             {
-                printf("Process Generator:: Send process-> %d, id: %d, arrival: %d, runtime: %d, priority: %d\n", pids[1], (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority);
+                printf("Process Generator:: Send process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
                 msgsnd(msgqid, &processes[i], sizeof(struct process), 0);
                 i++;
                 arrivedProcesses++;
