@@ -1,6 +1,6 @@
 #ifndef headers
 #define headers
-#include <stdio.h>      //if you don't use scanf/printf change this include
+#include <stdio.h> //if you don't use scanf/printf change this include
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/file.h>
@@ -13,8 +13,8 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
-#include<string.h>
-
+#include <string.h>
+#include <math.h>
 
 typedef short bool;
 #define true 1
@@ -22,38 +22,33 @@ typedef short bool;
 
 #define SHKEY 300
 
-
 ///==============================
-//don't mess with this variable//
-int * shmaddr;                 //
+// don't mess with this variable//
+int *shmaddr; //
 //===============================
-
-
 
 int getClk()
 {
     return *shmaddr;
 }
 
-
 /*
  * All process call this function at the beginning to establish communication between them and the clock module.
  * Again, remember that the clock is only emulation!
-*/
+ */
 void initClk()
 {
     int shmid = shmget(SHKEY, 4, 0444);
 
     while ((int)shmid == -1)
     {
-        //Make sure that the clock exists
+        // Make sure that the clock exists
         printf("Wait! The clock not initialized yet!\n");
         sleep(1);
         shmid = shmget(SHKEY, 4, 0444);
     }
-    shmaddr = (int *) shmat(shmid, (void *)0, 0);
+    shmaddr = (int *)shmat(shmid, (void *)0, 0);
 }
-
 
 /*
  * All process call this function at the end to release the communication
@@ -61,7 +56,7 @@ void initClk()
  * Again, Remember that the clock is only emulation!
  * Input: terminateAll: a flag to indicate whether that this is the end of simulation.
  *                      It terminates the whole system and releases resources.
-*/
+ */
 
 void destroyClk(bool terminateAll)
 {
@@ -72,28 +67,28 @@ void destroyClk(bool terminateAll)
     }
 }
 
-struct process {
+struct process
+{
     int id;
-    int arrival; //IMPORTANT
+    int arrival; // IMPORTANT
     int runtime;
     int priority;
     int memSize;
 };
 
-typedef struct PCB {
+typedef struct PCB
+{
     struct process fileInfo;
-    int state; //waiting->0 running->1
+    int state; // waiting->0 running->1
     int start;
     int end;
     int executionTime;
     int waitingTime;
     int turnaroundTime;
-    int remainingTime; 
-    int heapPriority;   ///ehh daa ya allam
+    int remainingTime;
+    int heapPriority; /// ehh daa ya allam
     pid_t pid;
-}PCB;
-
-
+} PCB;
 
 struct message
 {

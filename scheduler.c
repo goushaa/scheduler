@@ -39,6 +39,10 @@ minHeap priorityQueue;
 int remainingProcesses;
 
 FILE *sl;
+FILE *sp;
+FILE *ml;
+int TE;
+double TWTA, TW, TSTD;
 
 Queue queue; // for round robin
 int algorithm, quantum;
@@ -54,7 +58,7 @@ bool interrupt = 0;
 void proccesEnd(struct PCB *process)
 {
     process->end = getClk();
-    process->waitingTime = process->start - process->fileInfo.arrival;
+    process->waitingTime = process->turnaroundTime - process->fileInfo.runtime;
     process->turnaroundTime = process->end - process->fileInfo.arrival;
     process->executionTime = process->end - process->start;
 }
@@ -69,6 +73,7 @@ void First_Fit_Allocation(int id)
     processTable = originProcessTable;
     bool flag;
     int i;
+    int start, end;
     for (i = 0; i < 1024; i++)
     {
         if (memory[i] == -1)
@@ -88,24 +93,27 @@ void First_Fit_Allocation(int id)
                 for (int j = i; j < i + processTable[id].fileInfo.memSize; j++)
                     memory[j] = processTable[id].fileInfo.id;
 
+                start = i;
+                end = i + processTable[id].fileInfo.memSize - 1;
                 break;
             }
         }
     }
 
     if (i == 1024)
+    {
         printf("ERROR!!! Memory is Full\n");
+        return;
+    }
 
-    printf("Memory after Allocation:\n");
-    for (int i = 0; i < 65; i++)
-        printf("%d ", memory[i]);
-    printf("\n\n");
+    fprintf(ml, "At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), processTable[id].fileInfo.memSize, processTable[id].fileInfo.id, start, end);
 }
 
 void First_Fit_Deallocation(int id)
 {
     processTable = originProcessTable;
 
+    int start, end;
     for (int i = 0; i < 1024; i++)
     {
         if (memory[i] == processTable[id].fileInfo.id)
@@ -113,21 +121,23 @@ void First_Fit_Deallocation(int id)
             for (int j = i; j < i + processTable[id].fileInfo.memSize; j++)
                 memory[j] = -1;
 
+            start = i;
+            end = i + processTable[id].fileInfo.memSize - 1;
             break;
         }
     }
 
-    printf("Memory after Deallocation:\n");
-    for (int i = 0; i < 65; i++)
-        printf("%d ", memory[i]);
-    printf("\n\n");
+    fprintf(ml, "At time %d freed %d bytes for process %d from %d to %d\n", getClk(), processTable[id].fileInfo.memSize, processTable[id].fileInfo.id, start, end);
 }
 
 // 256
-void printRange(node *current, bool flag)
+void printRange(node *current, bool flag, int id)
 {
-    printf("%s", (flag ? "Allocation " : "Deallocation "));
-    printf("%d %d \n", current->start, current->start + current->size - 1);
+    processTable = originProcessTable;
+    if (flag == 1)
+        fprintf(ml, "At time %d allocated %d bytes for process %d from %d to %d\n", getClk(), processTable[id].fileInfo.memSize, processTable[id].fileInfo.id, current->start, current->start + current->size - 1);
+    else
+        fprintf(ml, "At time %d freed %d bytes for process %d from %d to %d\n", getClk(), processTable[id].fileInfo.memSize, processTable[id].fileInfo.id, current->start, current->start + current->size - 1);
 }
 
 void setNode(node *current, node *parent, int id, int start, bool full)
@@ -174,20 +184,19 @@ bool BUDDY_MEMORY_ALLOCATION(node *current, int id) // spliting function only
 {
     processTable = originProcessTable;
     int size = processTable[id].fileInfo.memSize;
-    printf("ZZZZZZZZ %d\n",size);
-    if (size < current->size && size >= current->size / 2)
+    if (current->size / 4 < size)
     {
         if (current->child[0] == NULL)
         {
             current->child[0] = malloc(sizeof(node));
             setNode(current->child[0], current, id, current->start, true);
-            printRange(current->child[0], 1);
+            printRange(current->child[0], 1, id);
         }
         else if (current->child[1] == NULL)
         {
             current->child[1] = malloc(sizeof(node));
             setNode(current->child[1], current, id, current->start + current->size / 2, true);
-            printRange(current->child[1], 1);
+            printRange(current->child[1], 1, id);
         }
         else
             return 0;
@@ -221,10 +230,10 @@ bool buddyMemoryAllocation(int id)
     return 1;
 }
 
-void BUDDY_MEMORY_DEALLOCATION(node *current, bool flag)
+void BUDDY_MEMORY_DEALLOCATION(node *current, bool flag, int id)
 {
     if (flag)
-        printRange(current, 0);
+        printRange(current, 0, id);
 
     node *parent = current->parent;
     if (parent->child[0] == current)
@@ -241,7 +250,7 @@ void BUDDY_MEMORY_DEALLOCATION(node *current, bool flag)
     {
         if (parent->parent != NULL && parent->child[0] == NULL && parent->child[1] == NULL)
         {
-            BUDDY_MEMORY_DEALLOCATION(parent, 0);
+            BUDDY_MEMORY_DEALLOCATION(parent, 0, id);
             break;
         }
         parent->full = false;
@@ -372,17 +381,21 @@ void HPF_Algo()
         HPF_current_PCB->executionTime = HPF_current_PCB->end - HPF_current_PCB->start;
         HPF_current_PCB->state = 0;
         remainingProcesses--;
+        TE += HPF_current_PCB->fileInfo.runtime;
+        TWTA += HPF_current_PCB->turnaroundTime * 1.0 / HPF_current_PCB->fileInfo.runtime;
+        TW += HPF_current_PCB->waitingTime;
+
         switch (memoryAlgorithm)
         {
         case 1:
             First_Fit_Deallocation(HPF_current_PCB->fileInfo.id - 1);
             break;
         case 2:
-            BUDDY_MEMORY_DEALLOCATION(proccessNode[HPF_current_PCB->fileInfo.id - 1], 1);
+            BUDDY_MEMORY_DEALLOCATION(proccessNode[HPF_current_PCB->fileInfo.id - 1], 1, HPF_current_PCB->fileInfo.id - 1);
             break;
         }
 
-        fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), HPF_current_PCB->fileInfo.id, HPF_current_PCB->fileInfo.arrival, HPF_current_PCB->fileInfo.runtime, 0, HPF_current_PCB->start - HPF_current_PCB->fileInfo.arrival, HPF_current_PCB->turnaroundTime, HPF_current_PCB->turnaroundTime / HPF_current_PCB->fileInfo.runtime * 1.0);
+        fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), HPF_current_PCB->fileInfo.id, HPF_current_PCB->fileInfo.arrival, HPF_current_PCB->fileInfo.runtime, 0, HPF_current_PCB->start - HPF_current_PCB->fileInfo.arrival, HPF_current_PCB->turnaroundTime, HPF_current_PCB->turnaroundTime * 1.0 / HPF_current_PCB->fileInfo.runtime);
     }
 }
 
@@ -409,7 +422,6 @@ void RR_Algo()
         else
             fprintf(sl, "At time %d process %d resumed arr %d total %d remain %d wait %d\n", getClk(), RR_current_PCB.fileInfo.id, RR_current_PCB.fileInfo.arrival, RR_current_PCB.fileInfo.runtime, RR_current_PCB.remainingTime, RR_current_PCB.start - RR_current_PCB.fileInfo.arrival);
 
-
         /*Wait untill process finish its quantum*/
         while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1)
         {
@@ -425,16 +437,21 @@ void RR_Algo()
             RR_current_PCB.waitingTime = RR_current_PCB.turnaroundTime - RR_current_PCB.fileInfo.runtime;
             RR_current_PCB.state = 0;
             remainingProcesses--;
+            TE += RR_current_PCB.executionTime;
+            TWTA += RR_current_PCB.turnaroundTime * 1.0 / RR_current_PCB.fileInfo.runtime;
+            TW += RR_current_PCB.waitingTime;
+
             switch (memoryAlgorithm)
             {
             case 1:
                 First_Fit_Deallocation(RR_current_PCB.fileInfo.id - 1);
                 break;
             case 2:
+                BUDDY_MEMORY_DEALLOCATION(proccessNode[RR_current_PCB.fileInfo.id - 1], 1, RR_current_PCB.fileInfo.id - 1);
                 break;
             }
 
-            fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), RR_current_PCB.fileInfo.id, RR_current_PCB.fileInfo.arrival, RR_current_PCB.fileInfo.runtime, 0, RR_current_PCB.start - RR_current_PCB.fileInfo.arrival, RR_current_PCB.turnaroundTime, RR_current_PCB.turnaroundTime / RR_current_PCB.fileInfo.runtime * 1.0);
+            fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), RR_current_PCB.fileInfo.id, RR_current_PCB.fileInfo.arrival, RR_current_PCB.fileInfo.runtime, 0, RR_current_PCB.start - RR_current_PCB.fileInfo.arrival, RR_current_PCB.turnaroundTime, RR_current_PCB.turnaroundTime * 1.0 / RR_current_PCB.fileInfo.runtime);
         }
         else
         {
@@ -451,24 +468,26 @@ void SRTN_Algo()
 {
     while (remainingProcesses > 0)
     {
-        printf("enter and queue cnt = %d\n", getcount(&priorityQueue));
         while (isEmpty(&priorityQueue))
         {
         }
         currentPCB = heapExtractMin(&priorityQueue);
         runningProcess = currentPCB->pid;
         kill(currentPCB->pid, SIGCONT);
-        printf("running procces %d and it's remaining time is %d\n", currentPCB->fileInfo.id, currentPCB->remainingTime);
         prevTime = getClk();
         if (currentPCB->start == -1)
+        {
             currentPCB->start = prevTime;
+            fprintf(sl, "At time %d process %d started arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
+        }
+        else
+            fprintf(sl, "At time %d process %d resumed arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
 
         currentPCB->state = 1;
 
         while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1 && !interrupt)
         {
         }
-        printf("end\n");
 
         if (interrupt)
         {
@@ -481,22 +500,28 @@ void SRTN_Algo()
         if (msg.status == 1)
         {
             proccesEnd(currentPCB);
-            printf("ID:%d finished at time: %d\n", currentPCB->pid, getClk());
             remainingProcesses--;
+            TE += currentPCB->executionTime;
+            TWTA += currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime;
+            TW += currentPCB->waitingTime;
+
             switch (memoryAlgorithm)
             {
             case 1:
                 First_Fit_Deallocation(currentPCB->fileInfo.id - 1);
                 break;
             case 2:
+                BUDDY_MEMORY_DEALLOCATION(proccessNode[currentPCB->fileInfo.id - 1], 1, currentPCB->fileInfo.id - 1);
                 break;
             }
+            fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, 0, currentPCB->start - currentPCB->fileInfo.arrival, currentPCB->turnaroundTime, currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime);
         }
         else
         {
             currentPCB->remainingTime--;
             currentPCB->heapPriority--;
             runningProcess = -1;
+            fprintf(sl, "At time %d process %d stopped arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
             insertValue(currentPCB, &priorityQueue);
         }
     }
@@ -506,6 +531,8 @@ void SRTN_Algo()
 int main(int argc, char *argv[])
 {
     signal(SIGUSR1, handler1);
+
+    TE = TSTD = TW = TWTA = 0;
 
     sl = fopen("scheduler.log", "w");
 
@@ -526,6 +553,32 @@ int main(int argc, char *argv[])
     }
 
     fprintf(sl, "#At time x process y state arr w total z remain y wait k\n");
+
+    sp = fopen("scheduler.perf", "w");
+
+    if (sp == NULL)
+    {
+        printf("Error opening file\n");
+        return 1;
+    }
+
+    ml = fopen("memory.log", "w");
+
+    if (ml == NULL)
+    {
+        printf("Error opening file\n");
+        return 1;
+    }
+    fclose(ml);
+
+    ml = fopen("memory.log", "a");
+
+    if (ml == NULL)
+    {
+        printf("Error opening file\n");
+        return 1;
+    }
+    fprintf(ml, "#At time x allocated y bytes for process z from I to j\n");
 
     if (argc != 5)
     {
@@ -585,9 +638,16 @@ int main(int argc, char *argv[])
     default:
         break;
     }
+
     msgctl(processmsgqid, IPC_RMID, NULL);
-    // TODO implement the scheduler :)
-    // upon termination release the clock resources.
+    processTable = originProcessTable;
+
+    for (int i = 0; i < processesNumber; i++)
+        TSTD += pow((processTable[i].turnaroundTime * 1.0 / processTable[i].fileInfo.runtime - TWTA), 2);
+
+    fprintf(sp, "CPU utilization = %lf%%\nAvg WTA = %lf\nAvg Waiting = %lf\nStd WTA = %lf\n", ((TE * 1.0 / getClk()) * 100.0), TWTA / processesNumber, TW / processesNumber, sqrt(TSTD / (double)processesNumber));
+    fclose(ml);
+    fclose(sp);
     fclose(sl);
     printf("\n........DONE........\n");
     // destroyClk(true);
