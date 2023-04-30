@@ -13,6 +13,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <errno.h>
+#include<string.h>
 
 
 typedef short bool;
