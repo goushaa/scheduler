@@ -19,8 +19,8 @@ int main(int argc, char * argv[])
     int no;
     struct processData pData;
     printf("Please enter the number of processes you want to generate: ");
-    // scanf("%d", &no);
-    no=10;
+    scanf("%d", &no);
+    // no=10;
     srand(time(null));
     //fprintf(pFile,"%d\n",no);
     fprintf(pFile, "#id arrival runtime priority memory\n");

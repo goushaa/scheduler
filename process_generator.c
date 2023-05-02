@@ -68,13 +68,6 @@ void readFile(struct process **processes_ptr)
 
 void chooseAlgorithms()
 {
-    while (memoryAlgorithm != 1 && memoryAlgorithm != 2)
-    {
-        printf("1. First Fit Memory Allocation\n");
-        printf("2. Buddy Memory Allocation\n");
-        printf("Please enter the number of memory algorithm you want to execute: ");
-        scanf("%d", &memoryAlgorithm);
-    }
 
     while (algorithm != 1 && algorithm != 2 && algorithm != 3)
     {
@@ -142,9 +135,9 @@ int main(int argc, char *argv[])
         printf("when i = %d, id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", i, (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
     }
     // 2. Ask the user for the chosen memory algorithm and scheduling algorithm and its parameters, if there are any.
-    // chooseAlgorithms();
-    algorithm=2;
-    memoryAlgorithm=2;
+    chooseAlgorithms();
+    // algorithm=2;
+    // memoryAlgorithm=2;
     // 3. Initiate and create the scheduler and clock processes.
     initiateChildren();
 
