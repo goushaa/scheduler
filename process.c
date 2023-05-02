@@ -6,7 +6,6 @@ bool interrupt = 0;
 bool sec = 0;
 void handler(int signum)
 {
-    // printf("interupted");
     interrupt = 1;
     signal(signum, handler);
 }
@@ -29,8 +28,6 @@ int main(int agrc, char *argv[])
     struct message msg;
     msg.mtype = 1001;
 
-    // printf("remaining time = %d\n", remainingTime);
-    // printf("algorithm %d \n", algorithm);
     signal(SIGUSR2,handler);
     while (1)
     {
@@ -43,29 +40,23 @@ int main(int agrc, char *argv[])
             while (getClk() - previousTime < remainingTime && !interrupt)
             {
             }
-            // printf("interupt is %d\n",interrupt);
             interrupt=0;
             int time=getClk();
             if (time - previousTime != 0)
             {
-                // printf("remaining time is %d\n",remainingTime);
                 remainingTime -= time - previousTime;
                 if(!remainingTime)
                     msg.status = 1;
                 msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
                 if(!remainingTime)
                     {
-                        printf("exit\n");
                         exit(0);
                     }
             }
-            else
-                printf("interupted\n");
+
             kill(getpid(), SIGSTOP);
             continue;
         }
-        // printf("Process %d: having RemainingTime = %d and Quantum = %d\n",getpid(),remainingTime,quantum);
-        printf("resuming");
         if (remainingTime <= quantum)
         {
             quantum = remainingTime;
@@ -77,8 +68,6 @@ int main(int agrc, char *argv[])
         {
             if (getClk() - previousTime == 1)
             {
-                // printf("Count: %d\n",count);
-                // printf("Current: %d\n",getClk());
                 count--;
                 remainingTime--;
                 previousTime = getClk();
@@ -92,7 +81,6 @@ int main(int agrc, char *argv[])
         {
             msg.status = 1;
             msgsnd(processmsgqid, &msg, sizeof(struct message), 0);
-            // printf("process %d is terminated ",getpid());
             exit(0);
         }
         else
@@ -104,10 +92,8 @@ int main(int agrc, char *argv[])
             kill(getpid(), SIGSTOP);
         }
         sec = 0;
-        // printf("%d\n",remainingTime);
     }
 
-    // destroyClk(false);
 
     return 0;
 }

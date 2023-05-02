@@ -18,12 +18,13 @@ void clearResources(int signum)
     kill(getpid(), SIGKILL);
 }
 
-void readFile(struct process **processes_ptr)
+void readFile(struct process **processes_ptr,char * filename)
 {
     FILE *file;
     char line[100];
+    printf("%s\n",filename);
 
-    file = fopen("processes.txt", "r");
+    file = fopen(filename, "r");
     if (file == NULL)
     {
         printf("Failed to open file.");
@@ -66,29 +67,33 @@ void readFile(struct process **processes_ptr)
     fclose(file);
 }
 
-void chooseAlgorithms()
+void chooseAlgorithms(char * algoText,char * algo,char * quantaText,char * quanta)
 {
 
-    while (algorithm != 1 && algorithm != 2 && algorithm != 3)
+    if(strcmp(algoText,"-sch") != 0)
     {
-        printf("1. Non-preemptive Highest Priority First (HPF)\n");
-        printf("2. Shortest Remaining time Next (SRTN)\n");
-        printf("3. Round Robin (RR)\n");
-        printf("Please enter the number of scheduling algorithm you want to execute: ");
-        scanf("%d", &algorithm);
+        printf("invalid -sch argument entry\nExiting...\n");
+        exit(0);
     }
 
-    if(algorithm == 2){
-     quantum = 1;   
-    }
-    else if(algorithm == 3)
-    {
-
-        while (quantum < 1)
+    algorithm = atoi(algo);
+    if(algorithm == 3){
+        if(strcmp(quantaText,"-q") != 0)
         {
-            printf("Please enter the quantum for the round robin algorithm: ");
-            scanf("%d", &quantum);
+            printf("invalid -q argument entry\nExiting...\n");
+            exit(0);
         }
+     quantum = atoi(quanta); 
+     if(quantum<=0)
+     {
+        printf("invalid quantum value entry\nExiting...\n");
+        exit(0);
+     }  
+    }
+    if(algorithm<1 || algorithm>3)
+    {
+        printf("invalid algorithm value entry\nExiting...\n");
+        exit(0);
     }
     return;
 }
@@ -129,13 +134,35 @@ int main(int argc, char *argv[])
     struct process *processes = NULL;
     // TODO Initialization
     // 1. Read the input files.
-    readFile(&processes);
+    
+    if(argc<2)
+    {
+        printf("Invalid number of arguments\nExiting...\n");
+        exit(0);
+    }
+    int length = strlen(argv[1]);
+    if(length>4 && argv[1][length-4] == '.' && argv[1][length-3] == 't' && argv[1][length-2]=='x'&& argv[1][length-1]=='t')
+    readFile(&processes,argv[1]);
+    else
+    {
+        printf("The file is not .txt type\nExiting...\n");
+        exit(0);
+    }
     for (int i = 0; i < processesNumber; i++)
     {
         printf("when i = %d, id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", i, (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
     }
     // 2. Ask the user for the chosen memory algorithm and scheduling algorithm and its parameters, if there are any.
-    chooseAlgorithms();
+    if(argc == 4)
+        chooseAlgorithms(argv[2],argv[3],"lol","lol");
+    else if (argc == 6)
+        chooseAlgorithms(argv[2],argv[3],argv[4],argv[5]);
+    else
+    {
+        printf("Invalid number of arguments\nExiting...\n");
+        exit(0);
+    }    
+        
     // algorithm=2;
     // memoryAlgorithm=2;
     // 3. Initiate and create the scheduler and clock processes.

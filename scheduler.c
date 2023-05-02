@@ -68,7 +68,6 @@ void proccesEnd(struct PCB *process)
 // Handler for receiving signal from process generator when a process is arrived
 void handler1(int signo)
 {
-    // printf("handler\n");
     processTable = originProcessTable;
 
     struct process temp;
@@ -76,7 +75,6 @@ void handler1(int signo)
     for (int i = 0; i < tempProcesses; i++)
     {
         msgrcv(msgqid, &temp, sizeof(struct process), 0, !IPC_NOWAIT);
-        // printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority, temp.memSize);
         processTable[pidCounter].fileInfo = temp;
         processTable[pidCounter].state = 0;
         processTable[pidCounter].remainingTime = temp.runtime;
@@ -85,10 +83,8 @@ void handler1(int signo)
         int currentTime = getClk();
         if (algorithm == 2 && runningProcess != -1 && (currentPCB->remainingTime - (currentTime - prevTime)) > processTable[pidCounter].remainingTime)
         {
-            // printf("interruptig process %d %d\n", runningProcess, currentPCB->pid);
             runningProcess = -1;
             kill(currentPCB->pid, SIGUSR2);
-            printf("how\n");
             if (currentTime - prevTime > 0)
             {
                 interrupt = 0;
@@ -112,7 +108,6 @@ void handler1(int signo)
             if (algorithm == 1)
                 quantum = temp.runtime;
             sprintf(quantum_str, "%d", quantum);
-            // printf("makingProcess\n");
             execl("./process.out", "process.out", runtime_str, quantum_str, algorithm_str, NULL);
         }
         else if (pids[pidCounter] == -1)
@@ -238,14 +233,12 @@ void SRTN_Algo()
 {
     while (remainingProcesses > 0)
     {
-        printf("remanining %d\n", remainingProcesses);
         while (isEmpty(&priorityQueue))
         {
         }
         currentPCB = heapExtractMin(&priorityQueue);
         runningProcess = currentPCB->pid;
         kill(currentPCB->pid, SIGCONT);
-        printf("pid is %d\n",currentPCB->pid);
         
         prevTime = getClk();
 
@@ -279,7 +272,6 @@ void SRTN_Algo()
             TE += currentPCB->executionTime;
             TWTA += currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime;
             TW += currentPCB->waitingTime;
-            printf("here\n");
 
             fprintf(sl,"At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %.2f\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, 0, currentTime -(currentPCB->fileInfo.runtime-currentPCB->remainingTime) - currentPCB->fileInfo.arrival, currentPCB->turnaroundTime, currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime);
         }
@@ -396,7 +388,6 @@ int main(int argc, char *argv[])
 
     for (int i = 0; i < processesNumber; i++)
         TSTD += pow((processTable[i].turnaroundTime * 1.0 / processTable[i].fileInfo.runtime - TWTA), 2);
-    printf("%lf\n",TW);
     fprintf(sp, "CPU utilization = %.2f%%\nAvg WTA = %.2f\nAvg Waiting = %.2f\nStd WTA = %.2f\n", ((TE * 1.0 / getClk()) * 100.0), TWTA / processesNumber, TW / processesNumber, sqrt(TSTD / (double)processesNumber));
     fclose(sp);
     fclose(sl);
