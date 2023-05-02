@@ -225,13 +225,17 @@ bool buddyMemoryAllocation(int id)
 {
     node *mn = findMIN(&Parent, originProcessTable[id].fileInfo.memSize);
     if (mn == NULL)
-        return 0;
+        {
+            return 0;
+        }
     BUDDY_MEMORY_ALLOCATION(mn, id);
     return 1;
 }
 
 void BUDDY_MEMORY_DEALLOCATION(node *current, bool flag, int id)
 {
+    if(!current)
+        return;
     if (flag)
         printRange(current, 0, id);
 
@@ -265,66 +269,60 @@ void BUDDY_MEMORY_DEALLOCATION(node *current, bool flag, int id)
 // Handler for receiving signal from process generator when a process is arrived
 void handler1(int signo)
 {
+    // printf("handler\n");
     processTable = originProcessTable;
-
-    if (pidCounter == 0)
-    { // refactor later and make it initilazie in main
-        if (algorithm == 2)
-            initialize(processesNumber, &priorityQueue);
-        if (algorithm == 3)
-            init_queue(&queue);
-    }
-
-    if (algorithm == 2 && runningProcess != -1)
-    {
-        interrupt = 1;
-        kill(runningProcess, SIGUSR1);
-        int currentTime = getClk();
-        if (prevTime < currentTime)
-        {
-            currentPCB->remainingTime--;
-            currentPCB->heapPriority--;
-        }
-        if (currentPCB->remainingTime > 0)
-            insertValue(currentPCB, &priorityQueue);
-        else
-        {
-            remainingProcesses--;
-            proccesEnd(currentPCB);
-        }
-    }
 
     struct process temp;
     int tempProcesses = *sigshmaddr;
     for (int i = 0; i < tempProcesses; i++)
     {
         msgrcv(msgqid, &temp, sizeof(struct process), 0, !IPC_NOWAIT);
-        printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority, temp.memSize);
+        // printf("Scheduler:: Recieve process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize: %d\n", temp.id, temp.arrival, temp.runtime, temp.priority, temp.memSize);
         processTable[pidCounter].fileInfo = temp;
         processTable[pidCounter].state = 0;
         processTable[pidCounter].remainingTime = temp.runtime;
         processTable[pidCounter].start = -1;
 
+        int currentTime = getClk();
+        if (algorithm == 2 && runningProcess != -1 && (currentPCB->remainingTime - (currentTime - prevTime)) > processTable[pidCounter].remainingTime)
+        {
+            // printf("interruptig process %d %d\n", runningProcess, currentPCB->pid);
+            runningProcess = -1;
+            kill(currentPCB->pid, SIGUSR2);
+            printf("how\n");
+            if (currentTime - prevTime > 0)
+            {
+                interrupt = 0;
+            }
+            else
+            {
+                insertValue(currentPCB, &priorityQueue);
+                interrupt = 1;
+            }
+        }
         switch (memoryAlgorithm)
         {
         case 1:
             First_Fit_Allocation(pidCounter);
             break;
         case 2:
-            buddyMemoryAllocation(pidCounter);
+            if(!buddyMemoryAllocation(pidCounter))printf("error");
             break;
         }
 
         pids[pidCounter] = fork();
         if (pids[pidCounter] == 0)
         {
-            char runtime_str[10]; // assuming the maximum number of digits for runtime is 10
-            char quantum_str[10]; // assuming the maximum number of digits for runtime is 10
+            char runtime_str[10];   // assuming the maximum number of digits for runtime is 10
+            char quantum_str[10];   // assuming the maximum number of digits for runtime is 10
+            char algorithm_str[10]; // assuming the maximum number of digits for runtime is 10
             sprintf(runtime_str, "%d", temp.runtime);
+            sprintf(algorithm_str, "%d", algorithm);
             if (algorithm == 1)
                 quantum = temp.runtime;
             sprintf(quantum_str, "%d", quantum);
-            execl("./process.out", "process.out", runtime_str, quantum_str, NULL);
+            printf("makingProcess\n");
+            execl("./process.out", "process.out", runtime_str, quantum_str, algorithm_str, NULL);
         }
         else if (pids[pidCounter] == -1)
         {
@@ -468,42 +466,47 @@ void SRTN_Algo()
 {
     while (remainingProcesses > 0)
     {
+        printf("remanining %d\n", remainingProcesses);
         while (isEmpty(&priorityQueue))
         {
         }
         currentPCB = heapExtractMin(&priorityQueue);
         runningProcess = currentPCB->pid;
         kill(currentPCB->pid, SIGCONT);
+        printf("pid is %d\n",currentPCB->pid);
+        
         prevTime = getClk();
-        if (currentPCB->start == -1)
-        {
-            currentPCB->start = prevTime;
-            fprintf(sl, "At time %d process %d started arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
-        }
-        else
-            fprintf(sl, "At time %d process %d resumed arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
 
         currentPCB->state = 1;
-
+        int rem = currentPCB->remainingTime;
         while (msgrcv(processmsgqid, &msg, sizeof(struct message), 1001, !IPC_NOWAIT) == -1 && !interrupt)
         {
-        }
 
+        }
         if (interrupt)
         {
             interrupt = 0;
             continue;
         }
 
+        if (currentPCB->start == -1)
+        {
+            currentPCB->start = prevTime;
+            printf("At time %d process %d started arr %d total %d remain %d wait %d\n", prevTime, currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, rem, currentPCB->start - currentPCB->fileInfo.arrival);
+        }
+        else
+            printf("At time %d process %d resumed arr %d total %d remain %d wait %d\n", prevTime, currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, rem, currentPCB->start - currentPCB->fileInfo.arrival);
         currentPCB->state = 0;
 
         if (msg.status == 1)
         {
+
             proccesEnd(currentPCB);
             remainingProcesses--;
             TE += currentPCB->executionTime;
             TWTA += currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime;
             TW += currentPCB->waitingTime;
+            printf("here\n");
 
             switch (memoryAlgorithm)
             {
@@ -511,17 +514,20 @@ void SRTN_Algo()
                 First_Fit_Deallocation(currentPCB->fileInfo.id - 1);
                 break;
             case 2:
+                if(!proccessNode[currentPCB->fileInfo.id - 1])
+                    printf("NULLLLLLL\n");
                 BUDDY_MEMORY_DEALLOCATION(proccessNode[currentPCB->fileInfo.id - 1], 1, currentPCB->fileInfo.id - 1);
                 break;
             }
-            fprintf(sl, "At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, 0, currentPCB->start - currentPCB->fileInfo.arrival, currentPCB->turnaroundTime, currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime);
+
+            printf("At time %d process %d finished arr %d total %d remain %d wait %d TA %d WTA %lf\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, 0, currentPCB->start - currentPCB->fileInfo.arrival, currentPCB->turnaroundTime, currentPCB->turnaroundTime * 1.0 / currentPCB->fileInfo.runtime);
         }
         else
         {
-            currentPCB->remainingTime--;
-            currentPCB->heapPriority--;
+            currentPCB->remainingTime -= getClk() - prevTime;
+            currentPCB->heapPriority -= getClk() - prevTime;
             runningProcess = -1;
-            fprintf(sl, "At time %d process %d stopped arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
+            printf("At time %d process %d stopped arr %d total %d remain %d wait %d\n", getClk(), currentPCB->fileInfo.id, currentPCB->fileInfo.arrival, currentPCB->fileInfo.runtime, currentPCB->remainingTime, currentPCB->start - currentPCB->fileInfo.arrival);
             insertValue(currentPCB, &priorityQueue);
         }
     }
@@ -608,6 +614,12 @@ int main(int argc, char *argv[])
     // initalize memory
     for (int i = 0; i < 1024; i++)
         memory[i] = -1;
+
+    // initilize queues
+    if (algorithm == 2){
+        initialize(processesNumber, &priorityQueue);
+    }if (algorithm == 3)
+        init_queue(&queue);
 
     // for message queue of receiving from process generator
     key_t key = ftok("key", 'p');

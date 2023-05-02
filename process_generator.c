@@ -142,7 +142,9 @@ int main(int argc, char *argv[])
         printf("when i = %d, id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", i, (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
     }
     // 2. Ask the user for the chosen memory algorithm and scheduling algorithm and its parameters, if there are any.
-    chooseAlgorithms();
+    // chooseAlgorithms();
+    algorithm=2;
+    memoryAlgorithm=2;
     // 3. Initiate and create the scheduler and clock processes.
     initiateChildren();
 
@@ -167,7 +169,7 @@ int main(int argc, char *argv[])
             int arrivedProcesses = 0;
             while ((processes + i)->arrival == currentTime)
             {
-                printf("Process Generator:: Send process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
+                // printf("Process Generator:: Send process-> id: %d, arrival: %d, runtime: %d, priority: %d, memSize:%d\n", (processes + i)->id, (processes + i)->arrival, (processes + i)->runtime, (processes + i)->priority,(processes + i)->memSize);
                 msgsnd(msgqid, &processes[i], sizeof(struct process), 0);
                 i++;
                 arrivedProcesses++;
@@ -187,3 +189,8 @@ int main(int argc, char *argv[])
 
     destroyClk(true);
 }
+
+/*
+3 5
+3 3
+*/
