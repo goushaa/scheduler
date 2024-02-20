@@ -1,28 +1,34 @@
+# OS Operating System Course Project
 
-#OS Operating System Course Project
-
-
-In the operating systems project I developed, the focus was on creating a comprehensive system that incorporated process management and memory management. The project aimed to simulate the behavior of an operating system by implementing various scheduling algorithms and memory management algorithms.
-
-The project included different process scheduling algorithms such as Highest Priority First (HPF), Shortest Remaining Time (SRT), and Round Robin. These algorithms were implemented to manage the execution order and time allocation for processes. HPF prioritizes processes based on their importance, SRT selects the process with the shortest remaining time to execute, and Round Robin ensures fairness by allocating a fixed time slice to each process in a cyclic manner.
-
-Furthermore, the project integrated different memory management algorithms like the Buddy Algorithm and First Fit Algorithm. The Buddy Algorithm divided the memory into blocks of varying sizes, allowing efficient allocation and deallocation of memory to processes. On the other hand, the First Fit Algorithm selected the first available memory block that could accommodate a process, thus optimizing memory utilization.
-
-The project aimed to showcase the functionality and effectiveness of these scheduling and memory management algorithms in a simulated operating system environment. By simulating process execution and memory allocation, it provided insights into the performance and efficiency of different algorithms in handling varying workloads and memory requirements.
-
-Overall, the project served as a valuable learning experience in understanding the intricacies of process management and memory management in operating systems. It provided a platform to explore the behavior and performance of different algorithms, enabling a deeper understanding of their strengths and weaknesses.
+In the operating systems project, we developed a comprehensive system focusing on process management and memory management. The project aimed to simulate the behavior of an operating system by implementing various scheduling and memory management algorithms.
 
 ## Features
 
-- Manage process using multiple scheduling algorithms
-- Manage memory allocations of newly coming processes
+- Manage processes using multiple scheduling algorithms such as Highest Priority First (HPF), Shortest Remaining Time (SRT), and Round Robin.
+- Manage memory allocations of newly arriving processes using algorithms like the Buddy Algorithm and First Fit Algorithm.
 
-## 🚀 About Us
-We're a team in Cairo University, Faculty of Engineering, Computer Engineering Department. This Project is for Operating Systems Course.
+## Project Overview
 
-## 🔗 Links
-#### Contributers Social Links
-1. Ahmed ELKady
-2. Abdelrahman 3alaam
-3. Mohamed Yasser
-4. Mustafa Tarek
+The project aimed to showcase the functionality and effectiveness of these scheduling and memory management algorithms in a simulated operating system environment. By simulating process execution and memory allocation, it provided insights into the performance and efficiency of different algorithms in handling varying workloads and memory requirements.
+
+## Scheduling Algorithms
+
+- **Highest Priority First (HPF):** Prioritizes processes based on their importance.
+- **Shortest Remaining Time (SRT):** Selects the process with the shortest remaining time to execute.
+- **Round Robin:** Ensures fairness by allocating a fixed time slice to each process in a cyclic manner.
+
+## Memory Management Algorithms
+
+- **Buddy Algorithm:** Divides memory into blocks of varying sizes for efficient allocation and deallocation.
+- **First Fit Algorithm:** Selects the first available memory block that can accommodate a process, optimizing memory utilization.
+
+## Contributors
+
+- [Ahmed ELKady](#)
+- [Abdelrahman 3alaam](#)
+- [Mohamed Yasser](#)
+- [Mustafa Tarek](#)
+
+## About Us
+
+We're a team from Cairo University, Faculty of Engineering, Computer Engineering Department. This project was developed as part of the Operating Systems Course.
